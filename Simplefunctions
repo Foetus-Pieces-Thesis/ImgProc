@@ -1,0 +1,35 @@
+import numpy as np
+import cv2
+
+def mod_con_bri(alpha,beta,img):
+    
+    adjusted = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+    return adjusted
+
+def mod_sharp(modimg):
+
+    #---Sharpening filter----
+    #kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])
+    img = cv2.filter2D(modimg, -1, kernel)
+
+    return img
+
+
+#specfies to read image file in colour
+imag = cv2.imread('fulltest.tif', 1)
+
+#values for contrast and brightness
+alpha = 1.6
+beta = 20
+
+
+adjusted = mod_con_bri(alpha, beta, imag)
+newimg = mod_sharp(adjusted)
+
+cv2.imshow("Opening img...",imag)
+cv2.imshow("Brightness&Contrast",adjusted)
+cv2.imshow("Sharpening",newimg)
+cv2.waitKey()
+cv2.destroyAllWindows()
+# modify_contrast(2.0,img)
