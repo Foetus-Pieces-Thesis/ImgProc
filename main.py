@@ -165,6 +165,9 @@ print('Dimension of image',img.shape)
 cv2.imshow('image_original',img)
 cv2.waitKey(0)
 
+#ideal values for contrast and brightness in mod_con_bri, should implement an iterative process
+alpha = 3.5
+beta = 15
 
 # # Saving the array in a csv file
 # arr_reshaped = img.reshape(img.shape[0], -1) # reshaping the array from 3D matrice to 2D matrice. array values are concatenated horizontally
