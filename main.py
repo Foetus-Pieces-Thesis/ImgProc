@@ -70,6 +70,19 @@ def modify_sharpness(val, modimg):
 
     return modimg
 
+def mod_con_bri(alpha,beta,img):
+    
+    adjusted = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+    return adjusted
+
+def mod_sharp(modimg):
+
+    #---Sharpening filter----
+    #kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])
+    img = cv2.filter2D(modimg, -1, kernel)
+
+    return img
 
 def convert_grayscale(image):
     '''
