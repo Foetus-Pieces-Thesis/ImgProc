@@ -3,19 +3,45 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from numpy import savetxt
+import tensorflow as tf
+import skimage.io
+import skimage.viewer as skview
+
+# from keras.preprocessing.image import load_img
+# import warnings
 
 
 def load(filename):
     '''
-    Function: load the tif file and saves it as 'pages'
+    Function: load the tif file and saves individual stacks, at each stack the corresponding RGB channels are saved
     Input:
-    filename: name of the file
+    filename: name of the file, assumes dimension of 5 X1024 X1024 X3
     '''
-    im = Image.open('filename')
+    data = skimage.io.imread(filename)
+    #print(data.shape)
+    for i in range(5):
+        datastack = data[i, :, :, :]
+        print(datastack.shape)
+        skimage.io.imsave('stack%d.png' % i, datastack)
+        for t in range(3):
+            channel_split = datastack[:, :, t]
+            zeros = np.zeros((1024, 1024), dtype=np.int8)
+            if t == 0:  # red channel
+                channel_split = np.stack((channel_split, zeros, zeros), axis=2)
+                print(channel_split.shape)
+                skimage.io.imsave("stack%d,channel%d.png" % (i, t), channel_split)
+            elif t == 1:  # green channel
+                channel_split = np.stack((zeros, channel_split, zeros), axis=2)
+                print(channel_split.shape)
+                skimage.io.imsave("stack%d,channel%d.png" % (i, t), channel_split)
+            else:  # blue channel
+                channel_split = np.stack((zeros, zeros, channel_split,), axis=2)
+                print(channel_split.shape)
+                skimage.io.imsave("stack%d,channel%d.png" % (i, t), channel_split)
 
-    for i, page in enumerate(ImageSequence.Iterator(im)):
-        page.save("page%d.png" % i)
-        #page.show("page%d.png" % i)
+    print("Process 'load' completed")
+
+    return None
 
 #Preprocessing
 #contrast,brightness,sharpness modification
@@ -26,7 +52,9 @@ def modify_contrast(val,modimg):
     val: int, A floating point value controlling the enhancement. Factor 1.0 always
      returns a copy of the original image, lower factors mean less color
      (brightness, contrast, etc), and higher values more.
+
     modimg: image object(PIL) that we want to process
+
     output:
     modimg: a numpy array representing the image
     '''
@@ -43,7 +71,9 @@ def modify_brightness(val,modimg):
     '''
     input:
     val: int, A floating point value controlling the enhancement.
+
     modimg: image object(PIL) that we want to process
+
     output:
     modimg: a numpy array representing the image
     '''
@@ -59,7 +89,9 @@ def modify_sharpness(val, modimg):
     '''
     input:
     val: int, A floating point value controlling the enhancement.
+
     modimg: image object(PIL) that we want to process
+
     output:
     modimg: a numpy array representing the image
     '''
@@ -70,29 +102,55 @@ def modify_sharpness(val, modimg):
 
     return modimg
 
-def mod_con_bri(alpha,beta,img):
-    
-    adjusted = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+def mod_con_bri(alpha,beta,iter,img):
+    '''
+    Function: g(x,y)= |alpha * f(x,y) + beta|
+        Scales, calculates absolute values, and converts the result to 8-bit.
+
+    Input:
+     alpha:double, for contrast(gain)
+     beta:double, for brightness(bias)
+     iter:int, number of iterations
+    Output:
+     adjusted: a numpy array
+
+    #Ideal values for contrast and brightness in mod_con_bri, should implement an iterative process
+    alpha = 3.5
+    beta = 15
+    '''
+    for i in range(iter):
+        adjusted = cv2.convertScaleAbs(img,alpha=alpha, beta=beta)
+
     return adjusted
 
-def mod_sharp(modimg):
+def mod_saturation(image,sat_factor):
+    '''
+    Input:
+    image:	RGB image or images. The size of the last dimension must be 3.
+    saturation_factor:	float, Factor to multiply the saturation by.
+    :return:
+    sat_img: Image modified by saturation function
+    '''
+    sat_img=tf.image.adjust_saturation(image,sat_factor)  #size of last dimension must be 3; processes RGB
+    print('Data type of image(after saturation)',img.dtype)
+    sat_img=tf.keras.preprocessing.image.img_to_array(sat_img) #convert back to np.array
+    print('Data type of image(after conversion to np)',img.dtype)
 
-    #---Sharpening filter----
-    #kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-    kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])
-    img = cv2.filter2D(modimg, -1, kernel)
+    return sat_img
 
-    return img
+
 
 def convert_grayscale(image):
     '''
-    Function: conversion to grayscale image
+    Function: conversion to grayscale image from RGB
     Input: image
-    Output:
-    gray: grayscale image
+    :return
+        gray: grayscale image
     '''
-    gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
     return gray
+
+
 
 def Gaussian_blur(image, ksize, sigmaX, sigmaY,borderType):
     '''
@@ -106,10 +164,12 @@ def Gaussian_blur(image, ksize, sigmaX, sigmaY,borderType):
     borderType : Specifies image boundaries while kernel is applied on image borders.
     Possible values are : cv.BORDER_CONSTANT cv.BORDER_REPLICATE cv.BORDER_REFLECT cv.BORDER_WRAP
     cv.BORDER_REFLECT_101 cv.BORDER_TRANSPARENT cv.BORDER_REFLECT101 cv.BORDER_DEFAULT cv.BORDER_ISOLATED
+
     return:
     '''
     blurred = cv2.GaussianBlur(image, ksize, sigmaX, sigmaY, borderType)
     return blurred
+
 def bilateral_filtering(image, d, sigmaColor, sigmaSpace):
     '''
     Input:
@@ -122,10 +182,11 @@ def bilateral_filtering(image, d, sigmaColor, sigmaSpace):
     bilateral_filt = cv2.bilateralFilter(image, d, sigmaColor, sigmaSpace)
     return bilateral_filt
 
-# Edge Detection
+## Edge Detection
 #Sobel
 def sobel(image, ddepth, dx, dy, ksize):
     '''
+
     :return:
     '''
     sobel_filt=cv2.Sobel(src, ddepth, dx, dy, ksize)
@@ -136,178 +197,203 @@ def canny(image,threshold1, threshold2):
     canny_filt = cv2.Canny(image, threshold1, threshold2)
     return canny_filt
 
-# def sharpen(image,ddepth=)
-#
-#     kernel = np.array([[0, -1, 0],
-#                        [-1, 5,-1],
-#                        [0, -1, 0]])
-#     image_sharp = cv2.filter2D(src=image, ddepth=-1, kernel=kernel)
-#     cv2.imshow('Sharpened_Image', image_sharp)
-
-#Body
-#load file
-# im = Image.open('stack.tif')
-# im = im.convert('RGB') # im is now of type <class 'PIL.Image.Image'>
-# print(type(im))
-# for i, page in enumerate(ImageSequence.Iterator(im)):
-#     page.save("page%d.png" % i)
-#     # sharpness enhancement
-#     sharpness_enhanced_im = modify_sharpness(10, page)  # 2nd argument cant be a ndarray needs to be a PIL.Image.Image
-#     sharpness_enhanced_im = np.array(sharpness_enhanced_im)  # convert into a matrix form (numpy array), cv2.imshow only takes in mat
-#     #cv2.imshow('sharpness_enhanced_im', sharpness_enhanced_im)
-#     page.save("enhanced_page%d.png"% i)
-#     # page.show("page%d.png" % i)
-
-#selecting a specific slice
-img = cv2.imread('page3.png')
-print(type(img))
-print('Dimension of image',img.shape)
-cv2.imshow('image_original',img)
-cv2.waitKey(0)
-
-#ideal values for contrast and brightness in mod_con_bri, should implement an iterative process
-alpha = 3.5
-beta = 15
-
-# # Saving the array in a csv file
-# arr_reshaped = img.reshape(img.shape[0], -1) # reshaping the array from 3D matrice to 2D matrice. array values are concatenated horizontally
-# #arr_reshaped dimension is (1024, 3072)
-# print('Dimension of arr_reshaped',arr_reshaped.shape)
-# savetxt('data_original.csv', arr_reshaped, delimiter=',',fmt='%d')
-# maxElement = np.amax(arr_reshaped)
-# print('Max value in array(original):',maxElement)
-
-#Gray Scaling
-# is there a way to have more levels in the color intensities
-# what is the largest number , what is the smallest number?
-gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-cv2.imshow('gray_image',gray_image)
-#plt.hist(gray_image.ravel(),256,[0,256]); #img.ravel() flattens array into a 1D array without changing input type
-
-# Histogram Equalization https://docs.opencv.org/4.x/d5/daf/tutorial_py_histogram_equalization.html
-img_equalizeHist = cv2.equalizeHist(gray_image)
-cv2.imshow('image_original_equalizehist',img_equalizeHist)
-
-#visualizing data using histogram
-plt.hist(img_equalizeHist.ravel(),256,[0,256]);
-#plt.legend(loc='upper right') add name to hist labels
-#plt.show()
-
-# 'suppress' values
-img_equalizeHist[(210>img_equalizeHist)] = 0.0
-cv2.imshow('image_original_equalizehist_suppressed',img_equalizeHist)
-
-# iterate the function equalizeHist
-for i in range(5): #'ideal' is 100
-    img_equalizeHist = cv2.equalizeHist(img_equalizeHist)
-    plt.hist(img_equalizeHist.ravel(), 256, [0, 256])
-    #plt.show()
-
-# fig.add_subplot(rows, columns, 5)
-# plt.imshow(opening,cmap='gray', vmin=0, vmax=255)
-# plt.title("opening_(4,4)_iter=1")
-#
-# opening = cv2.morphologyEx(threshInv, cv2.MORPH_OPEN, kernel, iterations=2)
-# fig.add_subplot(rows, columns, 6)
-# plt.imshow(opening,cmap='gray', vmin=0, vmax=255)
-# plt.title("opening_(4,4)_iter=2")
-
-#display plot of subplots
-#plt.show()
-cv2.imshow('image_original_equalizehist_suppressed_equalized',img_equalizeHist)
-
-# erosion
-kernel = np.ones((2, 2), 'uint8')
-erode_img = cv2.erode(img_equalizeHist, kernel, iterations=1)
-cv2.imshow('Eroded Image', erode_img)
-cv2.waitKey(0)
-
-# #convert back to RGB
-# backtorgb = cv2.cvtColor(erode_img,cv2.COLOR_GRAY2RGB)
-# cv2.imshow('Enhance Image',backtorgb)
-# cv2.waitKey(0)
-
-
-# # Saving the array in a csv file
-# arr_reshaped = gray_image.reshape(img.shape[0], -1) # reshaping the array from 3D matrice to 2D matrice. array values are concatenated horizontally
-# #arr_reshaped dimension is (1024, 3072)
-# print('Dimension of arr_reshaped(gray)',arr_reshaped.shape)
-# savetxt('data_grayimage.csv', arr_reshaped, delimiter=',',fmt='%d')
-# maxElement = np.amax(arr_reshaped)
-# print('Max value in array:',maxElement)
-
-# Image Sharpening
-kernel = np.array([[0, -1, 0],
-                   [-1, 5,-1],
-                   [0, -1, 0]])
-image_sharp = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
-cv2.imshow('Sharpened_Image_ddepth=-1_src=img', image_sharp)
-cv2.waitKey(0)
-image_sharp = cv2.filter2D(src=gray_image, ddepth=-1, kernel=kernel)
-cv2.imshow('Sharpened_Image_ddepth=-1_src=gray_image', image_sharp)
-cv2.waitKey(0)
-image_sharp = cv2.filter2D(src=erode_img, ddepth=-1, kernel=kernel)
-cv2.imshow('Sharpened_Image_grayed_ddepth=-1_src=img_equalizeHist', image_sharp)
-cv2.waitKey(0)
-
-
-
-# #Pre-Processing
-# # bilateral_filtered = bilateral_filtering(image, 9, 200, 200)
-# Gaussian_blur(sharpness_enhanced_im, (1, 1), 0, 0, cv2.BORDER_DEFAULT)
-#
-#
-# #convert to grayscale image
-# img= convert_grayscale(img)
-# print(type(img))
-#
-# # Edge Detection
+# # Edge Detection Example code
 # sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0, 20)  # Sobel Edge Detection on the X axis
 # sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1, 20)  # Sobel Edge Detection on the Y axis
 # sobelxy = cv2.Sobel(img, cv2.CV_64F, 1, 1, 20)  # Combined X and Y Sobel Edge Detection
 # cv2.imshow('sobelxy',sobelxy)
 # cv2.waitKey(0)
-#
-#Thresholding
-(T, threshInv) = cv2.threshold(erode_img, 0, 255,cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-cv2.imshow("Threshold", threshInv)
-print("[INFO] otsu's thresholding value: {}".format(T)) # any pixel greater than T is set to 0, less than T is set to 255
+
+#Image Sharpening
+def sharpen(image,ddepth=-1):
+
+    kernel = np.array([[0, -1, 0],
+                       [-1, 5,-1],
+                       [0, -1, 0]])
+    image_sharp = cv2.filter2D(src=image, ddepth=-1, kernel=kernel)
+    cv2.imshow('Sharpened_Image', image_sharp)
+
+    return image_sharp
+
+def save_csv():
+    # Saving the array in a csv file
+    arr_reshaped = img.reshape(img.shape[0], -1) # reshaping the array from 3D matrice to 2D matrice. array values are concatenated horizontally
+    #arr_reshaped dimension is (1024, 3072)
+    print('Dimension of arr_reshaped',arr_reshaped.shape)
+    savetxt('data_original.csv', arr_reshaped, delimiter=',',fmt='%d')
+    maxElement = np.amax(arr_reshaped)
+    print('Max value in array(original):',maxElement)
+
+    return
+
+def erosion(image,kernel_size_x,kernel_size_y,iterations):
+    '''
+    Documentation: https://docs.opencv.org/3.4/db/df6/tutorial_erosion_dilatation.html
+    Function: As the kernel B is scanned over the image, we compute the minimal pixel value overlapped by B
+              and replace the image pixel under the anchor point with that minimal value.
+              The erosion operation is: dst(x,y)=min(x′,y′):element(x′,y′)≠0src(x+x′,y+y′)
+    Input:
+    image: numpy array
+    kernel_size: int
+    iterations: int, no of iterations to perform erosion
+
+    :return
+    erode_img: numpy array representing eroded image
+    '''
+    kernel = np.ones((kernel_size_x, kernel_size_y), 'uint8') # does using other default values help?
+    erode_img = cv2.erode(image, kernel, iterations)
+
+    return erode_img
+
+def convert_gray2red(image):
+    '''
+    Function: converts a gray image into a red image(uint8) and saved it as image_red.png
+    :return:
+    '''
+    zeros = np.zeros((1024, 1024), dtype=np.uint8)
+    img_gray = image.astype(np.uint8)
+    print("img_gray dtype:", img_gray.dtype)
+    color_image = np.stack((img_gray, zeros, zeros), axis=2)
+    print("ColorImage shape:", color_image.shape)
+    print("ColorImage dtype:", color_image.dtype)
+    skimage.io.imsave('image_red.png', color_image)
+    print("Image saved as image_red.png")
+
+    return None
 
 
-# noise removal
-kernel = np.ones((2, 2), np.uint8)
-opening = cv2.morphologyEx(threshInv,cv2.MORPH_OPEN,kernel, iterations = 2)
-cv2.imshow("Opening_kernel(2,2)_iter:2", opening)
 
 
+#Super-Resolution
+# bilinear_img = cv2.resize(img_equalizeHist_suppressed_equalizehist_multiplied,None, fx = 1.2, fy = 1.2, interpolation = cv2.INTER_CUBIC)
+# #fx and fy is the factor by which height and width is increased
+# #try interpolation = cv2.INTER_NEAREST,cv2.INTER_CUBIC
+# cv2.imshow('bilinear_interpol',bilinear_img)
+# cv2.waitKey(0)
 
-# sure background area
-sure_bg = cv2.dilate(opening,kernel,iterations=3)
-cv2.imshow("Sure Background", sure_bg)
-# Finding sure foreground area
-dist_transform = cv2.distanceTransform(opening,cv2.DIST_L2,5)
-cv2.imshow('Dist_Transform',dist_transform)
-ret, sure_fg = cv2.threshold(dist_transform,0.7*dist_transform.max(),255,0)
+###-----------------------------------------------------------------------------------------------------------------------###
+###                                                 Body                                                                  ###
+###                                                                                                                       ###
+###-----------------------------------------------------------------------------------------------------------------------###
 
 
-# Finding unknown region
-sure_fg = np.uint8(sure_fg)
-cv2.imshow('Sure_fg',sure_fg)
-unknown = cv2.subtract(sure_bg,sure_fg)
-cv2.imshow('unknown',unknown)
+# load tif
+# filename='stack.tif'
+# load(filename)
+
+#selecting a specific slice
+img = cv2.imread('stack0,channel0.png')
+print(type(img))
+print('Dimension of image',img.shape)
+print('Data type of image(original)',img.dtype)
+cv2.imshow('image_original',img)
+cv2.waitKey(0)
+
+#modify contrast and brightness
+img_mod_con_bri= mod_con_bri(2.0,0,1,img)
+cv2.imshow('image_modified',img_mod_con_bri)
+cv2.waitKey(0)
+
+# modify saturation
+img_mod_sat=mod_saturation(img_mod_con_bri,1.0)
+cv2.imshow('saturation',img_mod_sat)
+cv2.waitKey(0)
+
+#sharpen
+sharpened_image=sharpen(img_mod_con_bri)
+cv2.imshow('image_sharpened',sharpened_image)
+cv2.waitKey(0)
+
+#erosion
+img_eroded=erosion(img_mod_con_bri,2,2,2)
+cv2.imshow('image_eroded',img_eroded)
 cv2.waitKey(0)
 
 
-# Marker labelling
-ret, markers = cv2.connectedComponents(sure_fg)
+# #Gray Scaling
+#converts from RGB to gray
+img_gray=convert_grayscale(img_eroded)
+cv2.imshow('gray_image',img_gray)
 
-# Add one to all labels so that sure background is not 0, but 1
-markers = markers+1
-print(markers)
+#save a gray scale image as a red image
+#convert_gray2red(img_gray)
 
-# Now, mark the region of unknown with zero
-markers[unknown==255] = 0
-markers = cv2.watershed(img,markers)
-img[markers == -1] = [255,0,0]
-cv2.imshow("Watershed", img)
+# # transposing data for specific CellPose need
+# resized_data = np.transpose(data, (0, 3, 1, 2))
+# print(resized_data.shape)
+
+
+
+
+# plt.hist(img_gray.ravel(),256,[0,256], label='Gray Image'); #img.ravel() flattens array into a 1D array without changing input type
+# plt.legend(prop={'size': 15})
+# plt.savefig('pg6_gray.jpg')
+
+# # Histogram Equalization
+# Documentation cv2.equalizeHist https://docs.opencv.org/4.x/d5/daf/tutorial_py_histogram_equalization.html #
+# # 4-step Process                                                                                    #
+# # 1.Equalize Histogram                                                                              #
+# # 2.Suppress values                                                                                 #
+# # 3.Equalize Histogram                                                                              #
+# # 4. Mutiply intensity by a factor to increase contrast                                             #
+# # --------------------------------------------------------------------------------------------------#
+
+#1.Equalize Histogram
+## takes 8 bit single channel image, outputs 8 bit image
+img_equalizeHist = cv2.equalizeHist(img_gray)
+cv2.imshow('image_original_equalizehist',img_equalizeHist)
+
+#visualizing data using histogram
+plt.hist(img_equalizeHist.ravel(),256,[0,256],label='HistogramEqualized');
+plt.legend(prop={'size': 15})
+plt.savefig('stack0,channel0_equalizehist.jpg')
+
+# 2.Suppress values
+img_equalizeHist[(210>img_equalizeHist)] = 0.0
+img_equalizeHist_suppressed=img_equalizeHist
+cv2.imshow('image_original_equalizehist_suppressed',img_equalizeHist_suppressed)
 cv2.waitKey(0)
+
+plt.hist(img_equalizeHist_suppressed.ravel(),256,[0,256],label='HistoEqualized_Suppress');
+plt.legend(prop={'size': 15})
+plt.savefig('stack0,channel0_equalizehist_suppressed.jpg')
+
+# 3.Equalize Histogram
+# img_equalizeHist_suppressed_equalizehist = np.zeros((1024,1024)) #array of zeros, size 1024x10240
+# #alpha represents the lower range boundary value,
+# #beta represents the upper range boundary value and
+# #normalization_type represents the type of normalization
+# cv2.normalize(src=img_equalizeHist_suppressed,dst=img_equalizeHist_suppressed_equalizehist,alpha=256.0,beta=0.0,norm_type=cv2.NORM_MINMAX)
+
+
+# cv2.imshow('image_original_equalizehist_suppressed_equalizehist',img_equalizeHist_suppressed_equalizehist)
+# cv2.waitKey(0)
+# plt.hist(img_equalizeHist_suppressed_equalizehist.ravel(),label='HistoEqualized_Suppress_HistEqualized')
+# plt.legend(prop={'size': 15})
+# plt.savefig('stack0,channel0_equalizehist_suppressed_equalizedhist.jpg')
+
+
+
+
+
+# #4. Mutiply intensity by a factor to increase contrast
+# # increase the spread of data by multiplying array representing image intensity values by a factor(>1)
+# print(img_equalizeHist_suppressed_equalizehist.dtype)
+# img_equalizeHist_suppressed_equalizehist = img_equalizeHist_suppressed_equalizehist.astype(np.float32)
+# print(img_equalizeHist_suppressed_equalizehist.dtype)
+# img_equalizeHist_suppressed_equalizehist_multiplied = cv2.convertScaleAbs(img_equalizeHist_suppressed_equalizehist, alpha=2,beta=0.0)
+# img_equalizeHist_suppressed_equalizehist_multiplied = img_equalizeHist_suppressed_equalizehist*2
+# print(img_equalizeHist_suppressed_equalizehist_multiplied.dtype)
+# plt.hist(img_equalizeHist_suppressed_equalizehist_multiplied.ravel(), 512, [0, 512],label='Multiplied')
+# plt.legend(prop={'size': 15})
+# plt.savefig('pg6_equalizeHist_suppressed_equalizehist_multiplied.jpg')
+# plt.show()
+# cv2.imshow('image_original_equalizehist_suppressed_equalizehist_multiplied',img_equalizeHist_suppressed_equalizehist_multiplied)
+# cv2.waitKey(0)
+
+
+
+# # #convert back to RGB
+# # backtorgb = cv2.cvtColor(erode_img,cv2.COLOR_GRAY2RGB)
+# # cv2.imshow('Enhance Image',backtorgb)
+# # cv2.waitKey(0)
