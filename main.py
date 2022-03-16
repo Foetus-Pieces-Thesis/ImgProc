@@ -19,11 +19,11 @@ def load(filename):
     '''
     data = skimage.io.imread(filename)
     #print(data.shape)
-    for i in range(5):
+    for i in range(5): #hardcoded 
         datastack = data[i, :, :, :]
         print(datastack.shape)
         skimage.io.imsave('stack%d.png' % i, datastack)
-        for t in range(3):
+        for t in range(3): #harcoded
             channel_split = datastack[:, :, t]
             zeros = np.zeros((1024, 1024), dtype=np.int8)
             if t == 0:  # red channel
@@ -45,63 +45,6 @@ def load(filename):
 
 #Preprocessing
 #contrast,brightness,sharpness modification
-def modify_contrast(val,modimg):
-
-    '''
-    input:
-    val: int, A floating point value controlling the enhancement. Factor 1.0 always
-     returns a copy of the original image, lower factors mean less color
-     (brightness, contrast, etc), and higher values more.
-
-    modimg: image object(PIL) that we want to process
-
-    output:
-    modimg: a numpy array representing the image
-    '''
-
-    filtercontrast = ImageEnhance.Contrast(modimg)
-    modimg = filtercontrast.enhance(val)
-    modimg = np.array(modimg) # convert into a numpy array
-
-    return modimg
-
-
-
-def modify_brightness(val,modimg):
-    '''
-    input:
-    val: int, A floating point value controlling the enhancement.
-
-    modimg: image object(PIL) that we want to process
-
-    output:
-    modimg: a numpy array representing the image
-    '''
-
-    filterbright = ImageEnhance.Brightness(modimg)
-    modimg = filterbright.enhance(val)
-    modimg = np.array(modimg) # convert into a numpy array
-
-    return modimg
-
-
-def modify_sharpness(val, modimg):
-    '''
-    input:
-    val: int, A floating point value controlling the enhancement.
-
-    modimg: image object(PIL) that we want to process
-
-    output:
-    modimg: a numpy array representing the image
-    '''
-
-    filtersharp = ImageEnhance.Sharpness(modimg)
-    modimg = filtersharp.enhance(val)
-    #modimg = np.array(modimg)  # convert into a numpy array
-
-    return modimg
-
 def mod_con_bri(alpha,beta,iter,img):
     '''
     Function: g(x,y)= |alpha * f(x,y) + beta|
