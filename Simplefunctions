@@ -33,3 +33,67 @@ cv2.imshow("Sharpening",newimg)
 cv2.waitKey()
 cv2.destroyAllWindows()
 # modify_contrast(2.0,img)
+
+
+
+#Backup
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def modify_contrast(val,modimg):
+
+    '''
+    input:
+    val: int, A floating point value controlling the enhancement. Factor 1.0 always
+     returns a copy of the original image, lower factors mean less color
+     (brightness, contrast, etc), and higher values more.
+
+    modimg: image object(PIL) that we want to process
+
+    output:
+    modimg: a numpy array representing the image
+    '''
+
+    filtercontrast = ImageEnhance.Contrast(modimg)
+    modimg = filtercontrast.enhance(val)
+    modimg = np.array(modimg) # convert into a numpy array
+
+    return modimg
+
+
+
+def modify_brightness(val,modimg):
+    '''
+    input:
+    val: int, A floating point value controlling the enhancement.
+
+    modimg: image object(PIL) that we want to process
+
+    output:
+    modimg: a numpy array representing the image
+    '''
+
+    filterbright = ImageEnhance.Brightness(modimg)
+    modimg = filterbright.enhance(val)
+    modimg = np.array(modimg) # convert into a numpy array
+
+    return modimg
+
+
+def modify_sharpness(val, modimg):
+    '''
+    input:
+    val: int, A floating point value controlling the enhancement.
+
+    modimg: image object(PIL) that we want to process
+
+    output:
+    modimg: a numpy array representing the image
+    '''
+
+    filtersharp = ImageEnhance.Sharpness(modimg)
+    modimg = filtersharp.enhance(val)
+    #modimg = np.array(modimg)  # convert into a numpy array
+
+    return modimg
+
+
