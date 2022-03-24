@@ -6,6 +6,7 @@ from numpy import savetxt
 import tensorflow as tf
 import skimage.io
 import skimage.viewer as skview
+import png
 
 # from keras.preprocessing.image import load_img
 # import warnings
@@ -19,11 +20,11 @@ def load(filename):
     '''
     data = skimage.io.imread(filename)
     #print(data.shape)
-    for i in range(5): #hardcoded 
+    for i in range(5):
         datastack = data[i, :, :, :]
         print(datastack.shape)
         skimage.io.imsave('stack%d.png' % i, datastack)
-        for t in range(3): #harcoded
+        for t in range(3):
             channel_split = datastack[:, :, t]
             zeros = np.zeros((1024, 1024), dtype=np.int8)
             if t == 0:  # red channel
@@ -44,7 +45,8 @@ def load(filename):
     return None
 
 #Preprocessing
-#contrast,brightness,sharpness modification
+
+
 def mod_con_bri(alpha,beta,iter,img):
     '''
     Function: g(x,y)= |alpha * f(x,y) + beta|
@@ -65,6 +67,7 @@ def mod_con_bri(alpha,beta,iter,img):
         adjusted = cv2.convertScaleAbs(img,alpha=alpha, beta=beta)
 
     return adjusted
+
 
 def mod_saturation(image,sat_factor):
     '''
@@ -197,15 +200,49 @@ def convert_gray2red(image):
     img_gray = image.astype(np.uint8)
     print("img_gray dtype:", img_gray.dtype)
     color_image = np.stack((img_gray, zeros, zeros), axis=2)
-    print("ColorImage shape:", color_image.shape)
-    print("ColorImage dtype:", color_image.dtype)
+    # print("ColorImage shape:", color_image.shape)
+    # print("ColorImage dtype:", color_image.dtype)
     skimage.io.imsave('image_red.png', color_image)
     print("Image saved as image_red.png")
 
+    return color_image
+
+
+def save_img(fname, img):
+
+    '''
+Function: Saves an image into a specified file type
+Parameters
+fname: str, Target filename. Filename must include image format such as .tiff, .png, .jpg
+img: image to be saved. Typically a numpy.ndarray
+
+'''
+    cv2.imwrite(fname, img)
+    print('Saving completed')
+
     return None
 
+def img_crop(img,dim):
+    '''
+    Function: Crops image by performing array indexing. Specify coordinates for cropping
+    Inputs:
+    img:  image to be cropped
+    coordinates: int values, Start y: End y, Start x: End x
+                Cropped Image will have pixel from Start y to (End y) -1 and Start x to (End x) -1
+    dim: tuple, (Start y, End y, Start x, End x)
+    Start y: The starting y-coordinate.
+    End y: The ending y-coordinate.
+    Start x: The starting x-coordinate of the slice.
+    End x: The ending x-axis coordinate of the slice.
+    '''
+    # coordinates=[start y:end y, start x: end x]
 
+    cropped = img[dim[0]:dim[1],dim[2]: dim[3]]
+    # not working, cropped is empty array
+    print(cropped)
+    print('Cropping Completed')
 
+    return cropped
 
 #Super-Resolution
 # bilinear_img = cv2.resize(img_equalizeHist_suppressed_equalizehist_multiplied,None, fx = 1.2, fy = 1.2, interpolation = cv2.INTER_CUBIC)
@@ -221,14 +258,16 @@ def convert_gray2red(image):
 
 
 # load tif
-# filename='stack.tif'
-# load(filename)
+filename='movie.tif'
+load(filename)
 
 #selecting a specific slice
 img = cv2.imread('stack0,channel0.png')
-print(type(img))
-print('Dimension of image',img.shape)
-print('Data type of image(original)',img.dtype)
+
+# print(type(img))
+# print('Dimension of image',img.shape)
+# print('Data type of image(original)',img.dtype)
+# cv2.imshow documentation 'https://docs.opencv.org/4.x/d7/dfc/group__highgui.html#ga453d42fe4cb60e5723281a89973ee563'
 cv2.imshow('image_original',img)
 cv2.waitKey(0)
 
@@ -238,9 +277,9 @@ cv2.imshow('image_modified',img_mod_con_bri)
 cv2.waitKey(0)
 
 # modify saturation
-img_mod_sat=mod_saturation(img_mod_con_bri,1.0)
-cv2.imshow('saturation',img_mod_sat)
-cv2.waitKey(0)
+# img_mod_sat=mod_saturation(img_mod_con_bri,1.0)
+# cv2.imshow('saturation',img_mod_sat)
+# cv2.waitKey(0)
 
 #sharpen
 sharpened_image=sharpen(img_mod_con_bri)
@@ -251,12 +290,19 @@ cv2.waitKey(0)
 img_eroded=erosion(img_mod_con_bri,2,2,2)
 cv2.imshow('image_eroded',img_eroded)
 cv2.waitKey(0)
+print('Eroded image Datatype',img_eroded.dtype)
+# save_img('img_eroded_s0c0.png',img_eroded)
+
+# crop=img_eroded[200:700,350:950]
+# save_img('ISRtest.png',crop)
+
+#skimage.io.imsave('Best.png',img_eroded)
 
 
 # #Gray Scaling
 #converts from RGB to gray
 img_gray=convert_grayscale(img_eroded)
-cv2.imshow('gray_image',img_gray)
+# cv2.imshow('gray_image',img_gray)
 
 #save a gray scale image as a red image
 #convert_gray2red(img_gray)
@@ -264,8 +310,6 @@ cv2.imshow('gray_image',img_gray)
 # # transposing data for specific CellPose need
 # resized_data = np.transpose(data, (0, 3, 1, 2))
 # print(resized_data.shape)
-
-
 
 
 # plt.hist(img_gray.ravel(),256,[0,256], label='Gray Image'); #img.ravel() flattens array into a 1D array without changing input type
@@ -300,43 +344,19 @@ cv2.waitKey(0)
 plt.hist(img_equalizeHist_suppressed.ravel(),256,[0,256],label='HistoEqualized_Suppress');
 plt.legend(prop={'size': 15})
 plt.savefig('stack0,channel0_equalizehist_suppressed.jpg')
+print('Image Datatype',img_equalizeHist_suppressed.dtype)
 
 # 3.Equalize Histogram
-# img_equalizeHist_suppressed_equalizehist = np.zeros((1024,1024)) #array of zeros, size 1024x10240
-# #alpha represents the lower range boundary value,
-# #beta represents the upper range boundary value and
-# #normalization_type represents the type of normalization
-# cv2.normalize(src=img_equalizeHist_suppressed,dst=img_equalizeHist_suppressed_equalizehist,alpha=256.0,beta=0.0,norm_type=cv2.NORM_MINMAX)
+# NOTE: Image becomes very saturated
+img_equalizeHist_suppressed_equalizeHist=cv2.equalizeHist(img_equalizeHist_suppressed)
 
-
-# cv2.imshow('image_original_equalizehist_suppressed_equalizehist',img_equalizeHist_suppressed_equalizehist)
-# cv2.waitKey(0)
-# plt.hist(img_equalizeHist_suppressed_equalizehist.ravel(),label='HistoEqualized_Suppress_HistEqualized')
+cv2.imshow('image_original_equalizehist_suppressed_equalizehist',img_equalizeHist_suppressed_equalizeHist)
+cv2.waitKey(0)
+# plt.hist(img_equalizeHist_suppressed_equalizeHist.ravel(),label='HistoEqualized_Suppress_HistEqualized')
 # plt.legend(prop={'size': 15})
 # plt.savefig('stack0,channel0_equalizehist_suppressed_equalizedhist.jpg')
+img_equalizeHist_suppressed_equalizeHist=mod_con_bri(1,-30,1,img_equalizeHist_suppressed_equalizeHist)
+cv2.imshow('Reduce brightness',img_equalizeHist_suppressed_equalizeHist)
+cv2.waitKey(0)
+mod_img=convert_gray2red(img_equalizeHist_suppressed_equalizeHist)
 
-
-
-
-
-# #4. Mutiply intensity by a factor to increase contrast
-# # increase the spread of data by multiplying array representing image intensity values by a factor(>1)
-# print(img_equalizeHist_suppressed_equalizehist.dtype)
-# img_equalizeHist_suppressed_equalizehist = img_equalizeHist_suppressed_equalizehist.astype(np.float32)
-# print(img_equalizeHist_suppressed_equalizehist.dtype)
-# img_equalizeHist_suppressed_equalizehist_multiplied = cv2.convertScaleAbs(img_equalizeHist_suppressed_equalizehist, alpha=2,beta=0.0)
-# img_equalizeHist_suppressed_equalizehist_multiplied = img_equalizeHist_suppressed_equalizehist*2
-# print(img_equalizeHist_suppressed_equalizehist_multiplied.dtype)
-# plt.hist(img_equalizeHist_suppressed_equalizehist_multiplied.ravel(), 512, [0, 512],label='Multiplied')
-# plt.legend(prop={'size': 15})
-# plt.savefig('pg6_equalizeHist_suppressed_equalizehist_multiplied.jpg')
-# plt.show()
-# cv2.imshow('image_original_equalizehist_suppressed_equalizehist_multiplied',img_equalizeHist_suppressed_equalizehist_multiplied)
-# cv2.waitKey(0)
-
-
-
-# # #convert back to RGB
-# # backtorgb = cv2.cvtColor(erode_img,cv2.COLOR_GRAY2RGB)
-# # cv2.imshow('Enhance Image',backtorgb)
-# # cv2.waitKey(0)
