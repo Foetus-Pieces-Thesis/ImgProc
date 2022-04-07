@@ -20,6 +20,8 @@ from ISR.models import RDN, RRDN
 model = RDN(weights='psnr-large')
 
 #Create Baseline
+# img.size[0]*2 : int here tells us zoom factor
+# resample: allows us to choose other mathematicl functions
 bicubic_img=img.resize(size=(img.size[0]*2, img.size[1]*2), resample=Image.BICUBIC)
 
 #Save
