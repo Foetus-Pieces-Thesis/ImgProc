@@ -1,25 +1,20 @@
-# import the necessary packages
 from imutils.video import VideoStream
 import argparse
 import imutils
 import time
 import cv2
-from skimage.measure import regionprops, label
-import skimage
+import pandas as pd
+import csv
 
-#RUN INSTRUCTIONS
-# 1. Press 's' to select obj to track
-# 2. Press space or enter to continue
-# 3. Press 's' again to select another obj to track
-# Add mp4 file to default path in arg parser below
+#pip install opencv-contrib-python==4.5.5.64
 
+#TRACKING CODE to track CellPose's masks
+
+# opening the csv file in 'w+' mode
+file = open('Coordinates.csv' , 'w+' , newline='')
 # construct the argument parser and parse the arguments
-#default="C:/Users/USER/Downloads/Movie/C1-movie-1_cp_masks.tif"
-#default="C:/Users/USER/Downloads/movie_f1-5"
-
-#CAP_IMAGES is 1 selection of opencv API: OpenCV Image Sequence (e.g. img_%02d.jpg)
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", type=str,
+ap.add_argument("-v", "--video", type=str, default="do3Dmovie.mp4",
 	help="path to input video file")
 ap.add_argument("-t", "--tracker", type=str, default="csrt",
 	help="OpenCV object tracker type")
@@ -47,8 +42,6 @@ if not args.get("video", False):
 # otherwise, grab a reference to the video file
 else:
 	vs = cv2.VideoCapture(args["video"])
-	#vs=skimage.io.imread(args["video"])
-	#vs=cv2.imread(args["video"])
 
 # loop over frames from the video stream
 while True:
@@ -65,10 +58,33 @@ while True:
 	# grab the updated bounding box coordinates (if any) for each
 	# object that is being tracked
 	(success, boxes) = trackers.update(frame)
+
+	ls = [] #empty list to store tuple of cords for each box/cell
+
 	# loop over the bounding boxes and draw then on the frame
-	for box in boxes:
-		(x, y, w, h) = [int(v) for v in box]
-		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+	cellcounter = 0
+	for box in boxes :
+		cellcounter=cellcounter+1
+		(x , y , w , h) = [int(v) for v in box]
+		cv2.rectangle(frame , (x , y) , (x + w , y + h) , (0 , 255 , 0) , 2)
+		# put (x,y) into a tuple and save in a list
+		cord=(x,y)
+		ls.append(cellcounter)
+		ls.append(cord)
+		write = csv.writer(file)
+		write.writerow(ls)
+	#after processing whole video file
+	# write = csv.writer(file)
+	# sen="Total no of cell tracked:" + str(cellcounter)
+	# write.writerow(sen)
+
+
+		# cv2.putText(frame , "Tracking" , (50 , 80) , cv2.FONT_HERSHEY_COMPLEX , 0.7 , (0 , 255 , 0) , 1)
+		# # # show x,y coordinate:
+		# cv2.putText(frame , "X =" , (0 , 30) , cv2.FONT_HERSHEY_COMPLEX , 0.7 , (0 , 255 , 0) , 1)
+		# cv2.putText(frame , str(int(x)) , (40 , 30) , cv2.FONT_HERSHEY_COMPLEX , 0.7 , (0 , 255 , 0) , 1)
+		# cv2.putText(frame , "Y =" , (100 , 30) , cv2.FONT_HERSHEY_COMPLEX , 0.7 , (0 , 255 , 0) , 1)
+		# cv2.putText(frame , str(int(y)) , (140 , 30) , cv2.FONT_HERSHEY_COMPLEX , 0.7 , (0 , 255 , 0) , 1)
 
 	# show the output frame
 	cv2.imshow("Frame", frame)
@@ -78,12 +94,12 @@ while True:
 	if key == ord("s"):
 		# select the bounding box of the object we want to track (make
 		# sure you press ENTER or SPACE after selecting the ROI)
-		box = cv2.selectROI("Frame", frame, fromCenter=False,
+		ls_box = cv2.selectROI("Frame", frame, fromCenter=False,
 			showCrosshair=True)
 		# create a new object tracker for the bounding box and add it
 		# to our multi-object tracker
 		tracker = OPENCV_OBJECT_TRACKERS[args["tracker"]]()
-		trackers.add(tracker, frame, box)
+		trackers.add(tracker, frame, ls_box)
 
 	# if the `q` key was pressed, break from the loop
 	elif key == ord("q"):
